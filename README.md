@@ -6,5 +6,5 @@ Description Here
 - Eduardo Torres
 - MinSeok (Micheal) Cho
 - Tanisha Jauhari
-- Joshua Robbins
+- Joshua Robins
 
