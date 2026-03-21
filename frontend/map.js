@@ -6,6 +6,8 @@ L.tileLayer('https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.jpg?key=Pom
     attribution: '<a href="https://www.maptiler.com/copyright/" target="_blank">&copy; MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">&copy; OpenStreetMap contributors</a>'
 }).addTo(map);
 
+let geojson;
+
 // Color scale
 function getColor(rent) {
     return rent > 4000 ? '#800026' :
@@ -37,24 +39,91 @@ function resetHighlight(e) {
 }
 
 // Tooltip
+
+let selectedFields = new Set();
+
+function buildTooltipContent(properties) {
+    let content = `ZIP: ${properties["GEOID20"]}<br>`;
+
+    selectedFields.forEach(field => {
+        content += `${fieldsToShow[field]}: ${properties[field]}<br>`;
+    });
+
+    return content;
+}
+
 function onEachFeature(feature, layer) {
     layer.on({
         mouseover: highlightFeature,
-        mouseout: resetHighlight
+        mouseout: resetHighlight,
+        mousemove: function() {
+            layer.bindTooltip(buildTooltipContent(feature.properties), {
+                sticky: true
+            }).openTooltip();
+        }
     });
-
-    layer.bindTooltip(`
-        ZIP: ${feature.properties["GEOID20"]}<br>
-        Total Renters: ${feature.properties["rent_burden_total_renter_households"]}<br>
-        Rent <10% Income: ${feature.properties["rent_lt_10pct_income"]}
-    `);
 }
 
+const fieldsToShow = {
+            median_gross_rent: "Median Gross Rent",
+            median_household_income: "Median Household Income",
+            total_population: "Total Population",
+            housing_units_total: "Total Housing Units",
+            renter_occupied_units: "Renter Occupied Units",
+            owner_occupied_units: "Owner Occupied Units",
+            rent_50pct_or_more_income: "Rent ≥ 50% Income"
+        };
+
 // Load GeoJSON
-let geojson;
 fetch('../datasets/final-usables/merged_nyc.geojson')
     .then(response => response.json())
     .then(data => {
+
+        const toolbar = document.getElementById("toolbar");
+
+        // --- Select All ---
+        const selectAllLabel = document.createElement("label");
+        selectAllLabel.innerHTML = `
+            <input type="checkbox" id="selectAll"> <strong>Select All</strong><br><br>
+        `;
+        toolbar.appendChild(selectAllLabel);
+
+        // --- Curated Checkboxes ---
+        Object.entries(fieldsToShow).forEach(([key, labelText]) => {
+            const label = document.createElement("label");
+            label.innerHTML = `
+                <input type="checkbox" value="${key}"> ${labelText}<br>
+            `;
+            toolbar.appendChild(label);
+        });
+
+        const checkboxes = document.querySelectorAll('#toolbar input[type="checkbox"]:not(#selectAll)');
+        const selectAll = document.getElementById("selectAll");
+
+        // Individual behavior
+        checkboxes.forEach(cb => {
+            cb.addEventListener('change', () => {
+                if (cb.checked) {
+                    selectedFields.add(cb.value);
+                } else {
+                    selectedFields.delete(cb.value);
+                }
+            });
+        });
+
+        // Select All behavior
+        selectAll.addEventListener('change', () => {
+            if (selectAll.checked) {
+                checkboxes.forEach(cb => {
+                    cb.checked = true;
+                    selectedFields.add(cb.value);
+                });
+            } else {
+                checkboxes.forEach(cb => cb.checked = false);
+                selectedFields.clear();
+            }
+        });
+
         geojson = L.geoJson(data, {
             style: style,
             onEachFeature: onEachFeature
