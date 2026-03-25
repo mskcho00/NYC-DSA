@@ -124,11 +124,26 @@ function resetHighlight(e) {
 let selectedFields = new Set();
 
 function buildTooltipContent(properties) {
-    let content = `<strong>ZIP: ${properties["GEOID20"]}</strong><br>`;
+    // Determine the "ID" dynamically
+    let idLabel, idValue;
+    if ("GEOID20" in properties) {
+        idLabel = "ZIP";
+        idValue = properties["GEOID20"];
+    } else if ("BoroName" in properties) {
+        idLabel = "Borough";
+        idValue = properties["BoroName"];
+    } else {
+        idLabel = "ID";
+        idValue = "N/A";
+    }
+
+    let content = `<strong>${idLabel}: ${idValue}</strong><br>`;
+
     selectedFields.forEach(field => {
         const cfg = fieldConfig[field];
         content += `${cfg.label}: ${cfg.format(properties[field])}<br>`;
     });
+
     return content;
 }
 
